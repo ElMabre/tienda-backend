@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: tienda-db
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: tienda_perritos
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    # Agregamos esta validación para que Docker sepa cuándo la BD está realmente lista
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-padmin123"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend-despachos:
+    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    container_name: tienda-backend-despachos
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_ENDPOINT=db
+      - DB_PORT=3306
+      - DB_NAME=tienda_perritos
+      - DB_USERNAME=root
+      - DB_PASSWORD=admin123
+    depends_on:
+      db:
+        # El backend ahora esperará obligatoriamente a que el healthcheck sea exitoso
+        condition: service_healthy
+
+  backend-ventas:
+    build: ./back-Ventas_SpringBoot/Springboot-API-REST
+    container_name: tienda-backend-ventas
+    ports:
+      - "8082:8082" 
+    environment:
+      - DB_ENDPOINT=db
+      - DB_PORT=3306
+      - DB_NAME=tienda_perritos
+      - DB_USERNAME=root
+      - DB_PASSWORD=admin123
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dbdata:
