@@ -9,7 +9,6 @@ jobs:
     steps:
       - name: Checkout del código
         uses: actions/checkout@v3
-
       - name: Configurar AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -17,11 +16,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: us-east-1
-
       - name: Login a Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-
       - name: Construir y Subir imágenes a ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -29,23 +26,22 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:despachos-latest ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:despachos-latest
-          
+
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:ventas-latest ./back-Ventas_SpringBoot/Springboot-API-REST
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:ventas-latest
-
       - name: Despliegue en EC2 usando AWS SSM
         run: |
           aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
-            --parameters commands=[ \
-              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 101578747734.dkr.ecr.us-east-1.amazonaws.com", \
-              "docker pull 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:despachos-latest", \
-              "docker pull 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:ventas-latest", \
-              "docker stop tienda-backend-despachos || true", \
-              "docker stop tienda-backend-ventas || true", \
-              "docker rm tienda-backend-despachos || true", \
-              "docker rm tienda-backend-ventas || true", \
-              "docker run -d --name tienda-backend-despachos -p 8081:8081 -e DB_ENDPOINT=172.31.11.7 -e DB_PORT=3306 -e DB_NAME=tienda_perritos -e DB_USERNAME=root -e DB_PASSWORD=admin123 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:despachos-latest", \
-              "docker run -d --name tienda-backend-ventas -p 8080:8080 -e DB_ENDPOINT=172.31.11.7 -e DB_PORT=3306 -e DB_NAME=tienda_perritos -e DB_USERNAME=root -e DB_PASSWORD=admin123 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:ventas-latest" \
-            ]
+            --parameters 'commands=[
+              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 101578747734.dkr.ecr.us-east-1.amazonaws.com",
+              "docker pull 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:despachos-latest",
+              "docker pull 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:ventas-latest",
+              "docker stop tienda-backend-despachos || true",
+              "docker stop tienda-backend-ventas || true",
+              "docker rm tienda-backend-despachos || true",
+              "docker rm tienda-backend-ventas || true",
+              "docker run -d --name tienda-backend-despachos -p 8081:8081 -e DB_ENDPOINT=172.31.11.7 -e DB_PORT=3306 -e DB_NAME=tienda_perritos -e DB_USERNAME=root -e DB_PASSWORD=admin123 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:despachos-latest",
+              "docker run -d --name tienda-backend-ventas -p 8080:8080 -e DB_ENDPOINT=172.31.11.7 -e DB_PORT=3306 -e DB_NAME=tienda_perritos -e DB_USERNAME=root -e DB_PASSWORD=admin123 101578747734.dkr.ecr.us-east-1.amazonaws.com/tienda-backend:ventas-latest"
+            ]'
