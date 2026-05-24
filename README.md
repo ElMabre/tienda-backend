@@ -1,24 +1,52 @@
-Backend — Tienda Perritos 
-Microservicios de Ventas y Despachos desarrollados con Java 17 + Spring Boot 3.4.x, contenedorizados con Docker y desplegados automáticamente en AWS EC2 mediante GitHub Actions.
+# Backend — Tienda Perritos 
 
-Tecnologías
-ComponenteVersiónJava17Spring Boot3.4.xMySQL8.0Docker Enginev24+Docker Composev2+
+Microservicios de **Ventas** y **Despachos** desarrollados con Java 17 + Spring Boot 3.4.x, contenedorizados con Docker y desplegados automáticamente en AWS EC2 mediante GitHub Actions.
 
-Estructura del proyecto
-Cada microservicio incluye su propio Dockerfile con construcción multi-stage:
+---
 
-Etapa 1 (build): imagen Maven/Java completa para compilar y generar el .jar.
-Etapa 2 (producción): imagen ligera eclipse-temurin:17-jre-alpine con solo el artefacto ejecutable.
+## Tecnologías
 
-El proceso corre bajo un usuario no-root (springuser) para reducir la superficie de ataque en EC2.
+| Componente | Versión |
+|---|---|
+| Java | 17 |
+| Spring Boot | 3.4.x |
+| MySQL | 8.0 |
+| Docker Engine | v24+ |
+| Docker Compose | v2+ |
 
-Variables de entorno
+---
+
+## Estructura del proyecto
+
+Cada microservicio incluye su propio `Dockerfile` con construcción **multi-stage**:
+
+- **Etapa 1 (build):** imagen Maven/Java completa para compilar y generar el `.jar`.
+- **Etapa 2 (producción):** imagen ligera `eclipse-temurin:17-jre-alpine` con solo el artefacto ejecutable.
+
+El proceso corre bajo un usuario no-root (`springuser`) para reducir la superficie de ataque en EC2.
+
+---
+
+## Variables de entorno
+
 El proyecto no hardcodea credenciales. Todas las configuraciones se inyectan por variables de entorno:
-VariableDescripciónValor por defecto (local)DB_ENDPOINTHost de la base de datosdbDB_PORTPuerto MySQL3306DB_NAMENombre de la base de datostienda_perritosDB_USERNAMEUsuario MySQLrootDB_PASSWORDContraseña MySQLadmin123
-En AWS, DB_ENDPOINT se reemplaza por la IP privada de la instancia EC2-DB.
 
-Levantar en local
-bash# Construir imágenes y levantar el stack
+| Variable | Descripción | Valor por defecto (local) |
+|---|---|---|
+| `DB_ENDPOINT` | Host de la base de datos | `db` |
+| `DB_PORT` | Puerto MySQL | `3306` |
+| `DB_NAME` | Nombre de la base de datos | `tienda_perritos` |
+| `DB_USERNAME` | Usuario MySQL | `root` |
+| `DB_PASSWORD` | Contraseña MySQL | `admin123` |
+
+En AWS, `DB_ENDPOINT` se reemplaza por la IP privada de la instancia EC2-DB.
+
+---
+
+## Levantar en local
+
+```bash
+# Construir imágenes y levantar el stack
 docker compose up -d --build
 
 # Verificar estado de los servicios
@@ -26,28 +54,42 @@ docker compose ps
 
 # Ver logs en tiempo real
 docker compose logs -f
-Healthcheck y dependencias
-El docker-compose.yml define un healthcheck sobre MySQL (mysqladmin ping). Los microservicios de Spring Boot no arrancan hasta que la base de datos reporta healthy, evitando errores de conexión en el inicio.
+```
 
-Persistencia de datos
-Se usa un named volume (dbdata) mapeado a /var/lib/mysql en el contenedor de base de datos.
+### Healthcheck y dependencias
+
+El `docker-compose.yml` define un healthcheck sobre MySQL (`mysqladmin ping`). Los microservicios de Spring Boot no arrancan hasta que la base de datos reporta `healthy`, evitando errores de conexión en el inicio.
+
+---
+
+## Persistencia de datos
+
+Se usa un **named volume** (`dbdata`) mapeado a `/var/lib/mysql` en el contenedor de base de datos.
+
 Se eligió named volume por sobre bind mount porque:
-
-Es gestionado directamente por el Docker daemon, sin depender de rutas del sistema operativo anfitrión.
-Funciona de forma idéntica en Fedora (local) y Amazon Linux 2023 (EC2).
-Ofrece mejor rendimiento de I/O sobre volúmenes EBS de AWS.
+- Es gestionado directamente por el Docker daemon, sin depender de rutas del sistema operativo anfitrión.
+- Funciona de forma idéntica en Fedora (local) y Amazon Linux 2023 (EC2).
+- Ofrece mejor rendimiento de I/O sobre volúmenes EBS de AWS.
 
 Los datos persisten ante reinicios del contenedor o de la instancia EC2.
 
-Pipeline CI/CD
-El archivo .github/workflows/deploy.yml se activa con cada push a la rama deploy.
-Flujo:
+---
 
-Autenticación en AWS usando los secrets AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY y AWS_SESSION_TOKEN.
-Construcción de las imágenes Docker de cada microservicio.
-Publicación en Amazon ECR bajo los tags ventas-latest y despachos-latest.
-Despliegue remoto vía AWS SSM: la instancia EC2-Backend descarga las nuevas imágenes, detiene los contenedores anteriores de forma ordenada y levanta los actualizados con las variables de entorno correspondientes.
+## Pipeline CI/CD
 
-Solución de errores frecuentes
-Public Key Retrieval is not allowed — resuelto agregando allowPublicKeyRetrieval=true en la cadena de conexión JDBC del application.properties.
-Error de zona horaria — Se resolvio forzando serverTimezone=UTC en la misma cadena de conexión.
+El archivo `.github/workflows/deploy.yml` se activa con cada `push` a la rama `deploy`.
+
+**Flujo:**
+
+1. Autenticación en AWS usando los secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN`.
+2. Construcción de las imágenes Docker de cada microservicio.
+3. Publicación en Amazon ECR bajo los tags `ventas-latest` y `despachos-latest`.
+4. Despliegue remoto vía AWS SSM: la instancia EC2-Backend descarga las nuevas imágenes, detiene los contenedores anteriores de forma ordenada y levanta los actualizados con las variables de entorno correspondientes.
+
+---
+
+## Solución de errores frecuentes
+
+**`Public Key Retrieval is not allowed`** — resuelto agregando `allowPublicKeyRetrieval=true` en la cadena de conexión JDBC del `application.properties`.
+
+**Error de zona horaria** — mitigado forzando `serverTimezone=UTC` en la misma cadena de conexión.
